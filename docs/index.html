@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 <div class="scene" aria-hidden="true">
@@ -166,6 +166,13 @@
 </main>
 </div>
 <!-- Hilfe -->
+<div class="modal" id="mNeu" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="neuH">
+    <div><h2 id="neuH">Neu in der Lernzentrale</h2><p class="sub" id="neuSub"></p></div>
+    <div class="neu-list" id="neuList"></div>
+    <div class="row-btns"><button type="button" class="btn" id="neuClose">Alles klar</button></div>
+  </div>
+</div>
 <div class="modal" id="mHelp" hidden>
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="heH">
     <h2 id="heH">So funktioniert die Lernzentrale</h2>
@@ -175,11 +182,11 @@
       <li><span><b>Quiz, Rechnen, Buchungen:</b> sofort Rückmeldung mit Erklärung und Lösungsweg.</span></li>
       <li><span><b>Erklären:</b> Antwort tippen, mit der Musterlösung vergleichen und die Punkte selbst abhaken. Sei ehrlich zu dir.</span></li>
       <li><span><b>Probeklausur:</b> Fach und Zeit wählen, am Ende gibt es eine Note nach IHK-Schlüssel.</span></li>
-      <li><span><b>Neuer Lernstoff:</b> Finn trägt ihn ein, dann sehen ihn alle automatisch.</span></li>
+      <li><span><b>Neuer Lernstoff:</b> Finn trägt ihn ein, dann sehen ihn alle automatisch. Was neu ist, zeigt dir beim Öffnen das Fenster „Neu in der Lernzentrale“.</span></li>
       <li><span><b>Dein Fortschritt</b> gehört nur dir. Die Klassenarbeiten sind für alle gleich, jeder darf sie eintragen und ändern.</span></li>
       <li><span>Lila markiert = aus dem Rahmenlehrplan ergänzt, nicht aus deinen Unterlagen.</span></li>
     </ul>
-    <div class="row-btns"><button type="button" class="btn" id="heClose">Verstanden</button></div>
+    <div class="row-btns"><button type="button" class="btn" id="heClose">Verstanden</button><button type="button" class="btn ghost" id="heNeu">Was ist neu?</button></div>
   </div>
 </div>
 
@@ -207,7 +214,7 @@
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="content.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="content.js?v=11"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

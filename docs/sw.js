@@ -1,10 +1,10 @@
 /* Lernzentrale – Service Worker: App offline verfügbar machen.
    Alle Pfade relativ, damit die App auch unter einer Unteradresse läuft (z. B. GitHub Pages /lernzentrale/).
    Kein start_url im Manifest: So startet die App vom Home-Bildschirm mit dem persönlichen Link (?p=…). */
-const VERSION = "lz-10";
+const VERSION = "lz-11";
 const BASE = self.registration.scope;
 const u = (p) => new URL(p, BASE).href;
-const SHELL = ["index.html", "styles.css?v=10", "content.js?v=10", "app.js?v=10", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"].map(u);
+const SHELL = ["index.html", "styles.css?v=11", "content.js?v=11", "app.js?v=11", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"].map(u);
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

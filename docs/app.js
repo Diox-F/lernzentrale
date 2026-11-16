@@ -29,7 +29,7 @@
 
   /* ---------- Daten ---------- */
   var S = { faecher: [], themen: [], termine: [], loaded: { faecher: false, themen: false, termine: false } };
-  var P = { items: {}, tage: {}, klausuren: [], frei: {}, pruef: {} };   // Lernstand (privat)
+  var P = { items: {}, tage: {}, klausuren: [], frei: {}, pruef: {}, neu: [] };   // Lernstand (privat)
   var CFG = { url: 'https://zqczfssjrukuszvevzcf.supabase.co', key: 'sb_publishable_2Er5-3zhFQZ1BvkNSeTDTg_8c2yilhw' };
   var CODE = null, ME = { name: '', admin: false }, saveT = null, dirty = false, lastRefresh = 0;
   var canSpeak = 'speechSynthesis' in window;
@@ -69,7 +69,7 @@
     P.tage[today()] = (P.tage[today()] || 0) + 1;
     queueSave(); renderBadges();
   }
-  function normP(o) { o = o || {}; return { items: Object.assign({}, o.items), tage: Object.assign({}, o.tage), klausuren: (o.klausuren || []).slice(), frei: Object.assign({}, o.frei), pruef: Object.assign({}, o.pruef) }; }
+  function normP(o) { o = o || {}; return { items: Object.assign({}, o.items), tage: Object.assign({}, o.tage), klausuren: (o.klausuren || []).slice(), frei: Object.assign({}, o.frei), pruef: Object.assign({}, o.pruef), neu: (o.neu || []).slice() }; }
   function queueSave() { dirty = true; lsSet(K('dirty'), true); lsSet(K('stand'), P); clearTimeout(saveT); saveT = setTimeout(saveNow, 1200); }
   function saveNow() {
     clearTimeout(saveT); saveT = null;
@@ -865,9 +865,45 @@
   });
   function openModal(id) { $(id).hidden = false; var f = $(id).querySelector(FINE ? 'input, select, button' : 'button'); if (f) f.focus({ preventScroll: true }); }
   function closeModal(id) { $(id).hidden = true; }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ['mSet', 'mHelp'].forEach(closeModal); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { ['mSet', 'mHelp'].forEach(closeModal); if (!$('mNeu').hidden) closeNeu(); } });
   $('bHelp').addEventListener('click', function () { openModal('mHelp'); });
   $('heClose').addEventListener('click', function () { closeModal('mHelp'); });
+  /* ---------- Neuigkeiten: Fenster mit allem, was seit dem letzten Besuch dazugekommen ist ---------- */
+  var neuShown = false, neuPending = [];
+  function neuListe() { return ((window.LZ_CONTENT || {}).neu || []).slice().sort(function (a, b) { return a.datum < b.datum ? 1 : a.datum > b.datum ? -1 : 0; }); }
+  function neuOffen() { var seen = P.neu || []; return neuListe().filter(function (n) { return seen.indexOf(n.id) < 0; }).slice(0, 4); }
+  function neuGesehen(list) { var seen = (P.neu || []).slice(); list.forEach(function (n) { if (seen.indexOf(n.id) < 0) seen.push(n.id); }); P.neu = seen; queueSave(); }
+  function neuGehe(p) {
+    if (p.f) { if (p.v === 'lernen') { lern.fach = p.f; lern.topic = null; } else if (p.v in filt) { filt[p.v] = p.f; sessions[p.v] = null; } }
+    if (p.v === 'pruefungen') { PZ.id = null; PZ.th = ''; }
+    show(p.v);
+  }
+  function showNeu(list, alle) {
+    var box = $('neuList'); clear(box);
+    list.forEach(function (n) {
+      var d = el('div', 'inner neu-item'), h = el('div', 'neu-h');
+      h.appendChild(el('b', null, n.titel)); h.appendChild(el('span', 'pill v', fmtDate(n.datum))); d.appendChild(h);
+      var ul = el('ul', 'neu-ul');
+      (n.punkte || []).forEach(function (p) {
+        var li = el('li'); li.appendChild(el('span', null, p.t + ' '));
+        if (p.v) { var b = el('button', 'chip', 'Ansehen'); b.type = 'button'; b.addEventListener('click', function () { closeNeu(); neuGehe(p); }); li.appendChild(b); }
+        ul.appendChild(li);
+      });
+      d.appendChild(ul); box.appendChild(d);
+    });
+    if (!list.length) box.appendChild(el('p', 'empty', 'Gerade gibt es nichts Neues.'));
+    $('neuSub').textContent = alle ? 'Die letzten Änderungen an der Lernzentrale.' : 'Das ist seit deinem letzten Besuch dazugekommen.';
+    neuPending = alle ? [] : list;
+    openModal('mNeu');
+  }
+  function closeNeu() { if (neuPending.length) neuGesehen(neuPending); neuPending = []; closeModal('mNeu'); }
+  function checkNeu() {
+    if (neuShown || !CODE || !$('gate').hidden) return; neuShown = true;
+    var l = neuOffen(); if (l.length) showNeu(l, false);
+  }
+  $('neuClose').addEventListener('click', closeNeu);
+  $('heNeu').addEventListener('click', function () { closeModal('mHelp'); showNeu(neuListe().slice(0, 4), true); });
+
   /* ---------- Einstellungen ---------- */
   $('bSet').addEventListener('click', function () { $('seName').value = ME.name || ''; openModal('mSet'); });
   $('seClose').addEventListener('click', function () { closeModal('mSet'); });
@@ -922,9 +958,10 @@
       setLive('ok', dirty ? 'Speichert …' : 'Gespeichert');
       setTermine(d.termine);
       render(cur);
+      setTimeout(checkNeu, 400);
     }).catch(function (e) {
       if (e && e.code === '28000') { try { localStorage.removeItem('lz:code'); } catch (x) {} gate('Dieser Link ist nicht gültig. Frag Finn nach deinem persönlichen Link.'); return; }
-      setLive('warn', 'Offline'); S.loaded.termine = true; render(cur);
+      setLive('warn', 'Offline'); S.loaded.termine = true; render(cur); setTimeout(checkNeu, 400);
     });
   }
 })();
