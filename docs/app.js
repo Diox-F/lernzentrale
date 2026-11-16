@@ -29,7 +29,7 @@
 
   /* ---------- Daten ---------- */
   var S = { faecher: [], themen: [], termine: [], loaded: { faecher: false, themen: false, termine: false } };
-  var P = { items: {}, tage: {}, klausuren: [], frei: {} };   // Lernstand (privat)
+  var P = { items: {}, tage: {}, klausuren: [], frei: {}, pruef: {} };   // Lernstand (privat)
   var CFG = { url: 'https://zqczfssjrukuszvevzcf.supabase.co', key: 'sb_publishable_2Er5-3zhFQZ1BvkNSeTDTg_8c2yilhw' };
   var CODE = null, ME = { name: '', admin: false }, saveT = null, dirty = false, lastRefresh = 0;
   var canSpeak = 'speechSynthesis' in window;
@@ -69,7 +69,7 @@
     P.tage[today()] = (P.tage[today()] || 0) + 1;
     queueSave(); renderBadges();
   }
-  function normP(o) { o = o || {}; return { items: Object.assign({}, o.items), tage: Object.assign({}, o.tage), klausuren: (o.klausuren || []).slice(), frei: Object.assign({}, o.frei) }; }
+  function normP(o) { o = o || {}; return { items: Object.assign({}, o.items), tage: Object.assign({}, o.tage), klausuren: (o.klausuren || []).slice(), frei: Object.assign({}, o.frei), pruef: Object.assign({}, o.pruef) }; }
   function queueSave() { dirty = true; lsSet(K('dirty'), true); lsSet(K('stand'), P); clearTimeout(saveT); saveT = setTimeout(saveNow, 1200); }
   function saveNow() {
     clearTimeout(saveT); saveT = null;
@@ -99,7 +99,7 @@
   $('live').addEventListener('click', function () { toast($('live').title || $('liveT').textContent); });
 
   /* ---------- Navigation ---------- */
-  var VIEWS = ['heute', 'lernen', 'karten', 'quiz', 'rechnen', 'buchen', 'erklaeren', 'klausur', 'faecher'];
+  var VIEWS = ['heute', 'lernen', 'karten', 'quiz', 'rechnen', 'buchen', 'erklaeren', 'klausur', 'pruefungen', 'faecher'];
   var cur = 'heute';
   function show(v) {
     if (VIEWS.indexOf(v) < 0) v = 'heute';
@@ -128,6 +128,7 @@
     else if (v === 'buchen') renderMode('buchen');
     else if (v === 'erklaeren') renderMode('erklaeren');
     else if (v === 'klausur') renderKlausur();
+    else if (v === 'pruefungen') renderPruefungen();
     else if (v === 'faecher') renderFaecher();
   }
 
@@ -309,6 +310,7 @@
     // Merkkarten als Kurzüberblick
     if ((t.karten || []).length) { var dt = el('details'); dt.appendChild(el('summary', null, 'Alle ' + t.karten.length + ' Merkkarten auf einen Blick')); var u = el('ul'); t.karten.forEach(function (k) { var li = el('li'); li.appendChild(el('b', null, k.v + ' ')); li.appendChild(document.createTextNode(k.r)); u.appendChild(li); }); dt.appendChild(u); doc.appendChild(dt); }
     c.appendChild(doc); wrap.appendChild(c);
+    if (t.fach === 'lf8') { var kpb = kontenplanBox(); if (kpb) { var kc = el('div', 'card'); kc.appendChild(kpb); wrap.appendChild(kc); } }
     // Videos
     var vc = el('div', 'card'); vc.appendChild(el('h2', null, 'Videos dazu'));
     vc.appendChild(el('p', 'sub', 'Öffnet die YouTube-Suche in einem neuen Tab. Nimm am besten ein kurzes Video von einer Schule oder einem Lehrkanal.'));
@@ -492,6 +494,7 @@
     });
     w.appendChild(bk);
     var go = el('button', 'btn', 'Prüfen'); go.type = 'button'; w.appendChild(go);
+    var kpb = kontenplanBox(); if (kpb) w.appendChild(kpb);
     go.addEventListener('click', function () {
       function read(side) { return sides[side].map(function (p) { return { k: p[0].value.trim(), b: parseNum(p[1].value) }; }).filter(function (r) { return r.k; }).sort(function (a, b) { return a.k < b.k ? -1 : 1; }); }
       function want(side) { return (it[side] || []).slice().sort(function (a, b) { return a.k < b.k ? -1 : 1; }); }
@@ -652,6 +655,156 @@
     var r = el('div', 'row-btns');
     if (EX.grading) { var fin = el('button', 'btn ok', 'Bewertung fertig, Note anzeigen'); fin.type = 'button'; fin.addEventListener('click', function () { EX.grading = 0; EX.qs.forEach(function (q) { if (q.typ === 'frei' && q.sel) mark(q.x.it.id, q.got >= q.p * 0.6); }); saveExam(); renderKlausur(); toTop(); }); r.appendChild(fin); }
     var nw = el('button', 'btn' + (EX.grading ? ' ghost' : ''), 'Neue Probeklausur'); nw.type = 'button'; nw.addEventListener('click', function () { EX = null; renderKlausur(); }); r.appendChild(nw); c.appendChild(r);
+  }
+
+
+  /* ---------- Kontenplan (Schulkontenrahmen Großhandel) ---------- */
+  function kontenplanBox(open) {
+    var kp = (window.LZ_CONTENT || {}).kontenplan; if (!kp) return null;
+    var d = el('details', 'kp'); if (open) d.open = true;
+    d.appendChild(el('summary', null, 'Kontenplan: ' + kp.titel));
+    var q = el('input'); q.type = 'search'; q.placeholder = 'Konto oder Name suchen, z. B. 440 oder Bank'; q.setAttribute('aria-label', 'Kontenplan durchsuchen'); d.appendChild(q);
+    var w = el('div', 'tw'), t = el('table'), hr = el('tr');
+    ['Konto', 'Name', 'Klasse'].forEach(function (x) { hr.appendChild(el('th', null, x)); }); t.appendChild(hr);
+    var rows = [];
+    kp.klassen.forEach(function (k) { k.konten.forEach(function (c) { var tr = el('tr'); tr.appendChild(el('td', 'num', c[0])); tr.appendChild(el('td', null, c[1])); tr.appendChild(el('td', null, k.k + ' · ' + k.name)); t.appendChild(tr); rows.push([tr, (c[0] + ' ' + c[1] + ' ' + k.name).toLowerCase()]); }); });
+    w.appendChild(t); d.appendChild(w);
+    q.addEventListener('input', function () { var s = q.value.trim().toLowerCase().replace(/skont[oi]/g, 'skont'); rows.forEach(function (r) { r[0].hidden = !!s && r[1].indexOf(s) < 0; }); });
+    d.appendChild(el('p', 'note', 'Quelle: ' + kp.quelle + '. Unterkonten haben eine Ziffer mehr (2001 gehört zu 200).'));
+    return d;
+  }
+
+  /* ---------- Prüfungen (Abschlussprüfung Teil 1) ---------- */
+  var PZ = { id: null, th: '', ende: 0, tick: null };
+  function pzAll() { return ((window.LZ_CONTENT || {}).pruefungen || []).slice().sort(function (a, b) { return (a.reihe || 99) - (b.reihe || 99); }); }
+  function pzById(id) { return pzAll().filter(function (e) { return e.id === id; })[0] || null; }
+  function pzParts(e) { var o = []; e.aufgaben.forEach(function (a) { a.teile.forEach(function (t) { o.push({ e: e, a: a, t: t }); }); }); return o; }
+  function pzGot(e, nr) { var s = P.pruef[e.id]; return s && s.p && s.p[nr] != null ? s.p[nr] : null; }
+  function pzStand(e) { var got = 0, max = 0, done = 0, n = 0; pzParts(e).forEach(function (x) { n++; max += x.t.p; var v = pzGot(e, x.t.nr); if (v != null) { done++; got += v; } }); return { got: got, max: max, done: done, n: n }; }
+  function pzSet(e, nr, v) { var s = P.pruef[e.id] || (P.pruef[e.id] = { p: {} }); if (!s.p) s.p = {}; if (v == null) delete s.p[nr]; else s.p[nr] = v; s.d = today(); queueSave(); }
+  function pzTopics() { var m = {}; pzAll().forEach(function (e) { pzParts(e).forEach(function (x) { m[x.t.th] = (m[x.t.th] || 0) + 1; }); }); return Object.keys(m).sort().map(function (k) { return [k, m[k]]; }); }
+  function fmtP(v) { return String(v).replace('.', ','); }
+  function stopUhr() { clearInterval(PZ.tick); PZ.tick = null; PZ.ende = 0; }
+  function tickUhr() {
+    var u = $('pzUhr'); if (!u) { if (cur !== 'pruefungen') stopUhr(); return; }
+    var left = Math.max(0, Math.round((PZ.ende - Date.now()) / 1000));
+    u.textContent = Math.floor(left / 60) + ':' + pad(left % 60); u.className = 'timer' + (left < 600 ? ' low' : '');
+    if (!left) { stopUhr(); toast('Die 90 Minuten sind um. Schau dir jetzt die Lösungen an.'); }
+  }
+
+  function renderPruefungen() {
+    var c = $('pzBox'); clear(c);
+    var e = PZ.id && pzById(PZ.id);
+    if (e) { c.appendChild(pzExamPage(e)); return; }
+    if (PZ.th) { c.appendChild(pzTopicPage(PZ.th)); return; }
+    var all = pzAll();
+    if (!all.length) { c.appendChild(el('p', 'empty', 'Noch keine Prüfungen hinterlegt.')); return; }
+    var intro = el('div', 'card');
+    var hd = el('div'); hd.appendChild(el('h2', null, 'Abschlussprüfung Teil 1')); hd.appendChild(el('p', 'sub', 'Organisieren des Warensortiments und von Dienstleistungen · 90 Minuten · 2 Aufgaben à 20 Punkte'));
+    intro.appendChild(hd);
+    intro.appendChild(el('p', 'note', 'Echte Prüfungen aus Baden-Württemberg, Aufgaben und Lösungen in eigenen Worten zusammengefasst. Die Originale mit allen Anlagen stehen in deinem Prüfungsbuch. So geht’s: Aufgabe lesen, Antwort aufschreiben, Lösung aufdecken, dir selbst Punkte geben. Am Ende siehst du die Note nach IHK-Schlüssel.'));
+    var tc = el('div', 'chips'); tc.setAttribute('role', 'group'); tc.setAttribute('aria-label', 'Nach Thema üben');
+    pzTopics().forEach(function (x) { var b = el('button', 'chip'); b.type = 'button'; b.textContent = x[0]; var n = el('span', 'n', String(x[1])); b.appendChild(n); b.addEventListener('click', function () { PZ.th = x[0]; renderPruefungen(); toTop(); }); tc.appendChild(b); });
+    intro.appendChild(el('h3', null, 'Nach Thema üben')); intro.appendChild(tc);
+    c.appendChild(intro);
+    var grid = el('div', 'tgrid');
+    all.forEach(function (x) {
+      var s = pzStand(x), b = el('button', 'tcard'); b.type = 'button';
+      b.appendChild(el('b', null, x.titel));
+      b.appendChild(el('span', 'sub', x.art + ' · ' + x.aufgaben.map(function (a) { return a.firma.split(',')[0]; }).join(', ')));
+      var m = el('div', 'meta'); m.appendChild(el('span', null, s.done + ' von ' + s.n + ' Teilaufgaben bewertet'));
+      if (s.done) { var pct = s.got / s.max * 100; m.appendChild(el('span', 'pill ' + (s.done === s.n ? (pct >= 67 ? 'ok' : pct >= 50 ? 'warn' : 'bad') : ''), s.done === s.n ? 'Note ' + noteFor(pct)[1] : fmtP(s.got) + ' P.')); }
+      b.appendChild(m);
+      var bar = el('div', 'bar'); var fill = el('i'); fill.style.width = Math.round(s.done / s.n * 100) + '%'; bar.appendChild(fill); b.appendChild(bar);
+      b.addEventListener('click', function () { PZ.id = x.id; renderPruefungen(); toTop(); });
+      grid.appendChild(b);
+    });
+    c.appendChild(grid);
+  }
+
+  function pzBack(label) {
+    var nav = el('div', 'row-btns'); var back = el('button', 'chip', '← ' + label); back.type = 'button';
+    back.addEventListener('click', function () { PZ.id = null; PZ.th = ''; stopUhr(); renderPruefungen(); toTop(); }); nav.appendChild(back); return nav;
+  }
+
+  function pzPart(e, a, t, withExam, onRate) {
+    var b = el('div', 'ex-q pz');
+    var h = el('div', 'qh'); h.appendChild(el('span', null, (withExam ? e.titel + ' · Aufgabe ' : '') + t.nr + ' · ' + t.th));
+    var pp = el('span', null, t.p + ' Punkte'); h.appendChild(pp); b.appendChild(h);
+    if (withExam) b.appendChild(el('p', 'note', a.firma + ': ' + a.lage));
+    b.appendChild(el('p', 'pz-f', t.f));
+    var tags = el('div', 'row-btns');
+    if (t.pg) tags.appendChild(el('span', 'pill', 'Punkte geschätzt'));
+    if (t.eig) tags.appendChild(el('span', 'pill v', 'Lösung selbst erstellt'));
+    if (tags.firstChild) b.appendChild(tags);
+    var ta = el('textarea'); ta.placeholder = 'Deine Antwort (optional, wird nicht gespeichert) …'; ta.setAttribute('aria-label', 'Deine Antwort zu ' + t.nr); b.appendChild(ta);
+    var got = pzGot(e, t.nr);
+    var show = el('button', 'btn ghost', got == null ? 'Lösung zeigen' : 'Lösung zeigen (bewertet: ' + fmtP(got) + ' von ' + t.p + ')'); show.type = 'button';
+    var sol = el('div', 'pz-sol'); sol.hidden = true;
+    show.addEventListener('click', function () { sol.hidden = !sol.hidden; show.textContent = sol.hidden ? 'Lösung zeigen' : 'Lösung ausblenden'; });
+    b.appendChild(show);
+    sol.appendChild(el('h3', null, 'Lösung'));
+    sol.appendChild(el('p', 'muster', t.l));
+    if (t.tab) sol.appendChild(renderBlock({ t: 'tabelle', kopf: t.tab.kopf, zeilen: t.tab.zeilen }));
+    sol.appendChild(el('h3', null, 'Wie viele Punkte gibst du dir?'));
+    var rate = el('div', 'chips'); rate.setAttribute('role', 'group'); rate.setAttribute('aria-label', 'Punkte für ' + t.nr);
+    for (var v = 0; v <= t.p; v++) (function (v) {
+      var r = el('button', 'chip', String(v)); r.type = 'button'; r.setAttribute('aria-pressed', String(pzGot(e, t.nr) === v));
+      r.addEventListener('click', function () { var on = pzGot(e, t.nr) === v; pzSet(e, t.nr, on ? null : v); [].forEach.call(rate.children, function (x) { x.setAttribute('aria-pressed', String(!on && x === r)); }); if (onRate) onRate(); });
+      rate.appendChild(r);
+    })(v);
+    sol.appendChild(rate);
+    b.appendChild(sol);
+    return b;
+  }
+
+  function pzExamPage(e) {
+    var wrap = el('div', 'view'); wrap.appendChild(pzBack('Alle Prüfungen'));
+    var top = el('div', 'card'), hd = el('div', 'vhead'), l = el('div');
+    l.appendChild(el('h2', null, e.titel)); l.appendChild(el('p', 'sub', e.art + ' · 90 Minuten · ' + pzStand(e).max + ' Punkte'));
+    hd.appendChild(l);
+    var uhrBox = el('div', 'row-btns');
+    var uhr = el('span', 'timer'); uhr.id = 'pzUhr'; uhr.textContent = '90:00';
+    var ub = el('button', 'btn ghost', PZ.tick ? 'Uhr stoppen' : 'Prüfungsuhr starten'); ub.type = 'button';
+    ub.addEventListener('click', function () { if (PZ.tick) { stopUhr(); ub.textContent = 'Prüfungsuhr starten'; uhr.textContent = '90:00'; uhr.className = 'timer'; } else { PZ.ende = Date.now() + 90 * 60000; PZ.tick = setInterval(tickUhr, 1000); ub.textContent = 'Uhr stoppen'; tickUhr(); } });
+    uhrBox.appendChild(uhr); uhrBox.appendChild(ub); hd.appendChild(uhrBox); top.appendChild(hd);
+    if (e.hinweis) top.appendChild(el('p', 'note', 'Hinweis: ' + e.hinweis));
+    top.appendChild(el('p', 'note', e.quelle));
+    wrap.appendChild(top);
+    var sum = el('div', 'card');
+    function renderSum() {
+      clear(sum); var s = pzStand(e), pct = s.max ? s.got / s.max * 100 : 0, n = noteFor(pct);
+      var h2 = el('div', 'vhead'), ll = el('div');
+      ll.appendChild(el('h2', null, 'Dein Ergebnis'));
+      ll.appendChild(el('p', 'sub', s.done < s.n ? s.done + ' von ' + s.n + ' Teilaufgaben bewertet · bisher ' + fmtP(s.got) + ' Punkte' : fmtP(s.got) + ' von ' + s.max + ' Punkten · ' + Math.round(pct) + ' %'));
+      h2.appendChild(ll);
+      var nb = el('div'); nb.appendChild(el('span', 'note-big', s.done < s.n ? '…' : String(n[1]))); nb.appendChild(el('p', 'note', s.done < s.n ? 'Note nach allen Teilaufgaben' : n[2])); h2.appendChild(nb);
+      sum.appendChild(h2);
+      if (s.done) { var rs = el('button', 'chip', 'Bewertung zurücksetzen'); rs.type = 'button'; rs.addEventListener('click', function () { if (!rs.dataset.armed) { rs.dataset.armed = '1'; rs.textContent = 'Wirklich alles zurücksetzen?'; setTimeout(function () { rs.textContent = 'Bewertung zurücksetzen'; delete rs.dataset.armed; }, 3000); return; } delete P.pruef[e.id]; queueSave(); renderPruefungen(); }); var rr = el('div', 'row-btns'); rr.appendChild(rs); sum.appendChild(rr); }
+    }
+    e.aufgaben.forEach(function (a) {
+      var card = el('div', 'card');
+      var ah = el('div'); ah.appendChild(el('h2', null, 'Aufgabe ' + a.nr + ' · ' + a.firma)); ah.appendChild(el('p', 'sub', a.teile.reduce(function (s, t) { return s + t.p; }, 0) + ' Punkte'));
+      card.appendChild(ah);
+      card.appendChild(el('p', 'pz-lage', a.lage));
+      a.teile.forEach(function (t) { card.appendChild(pzPart(e, a, t, false, renderSum)); });
+      wrap.appendChild(card);
+    });
+    renderSum(); wrap.appendChild(sum);
+    if (PZ.tick) setTimeout(tickUhr, 0);
+    return wrap;
+  }
+
+  function pzTopicPage(th) {
+    var wrap = el('div', 'view'); wrap.appendChild(pzBack('Alle Prüfungen'));
+    var top = el('div', 'card'); top.appendChild(el('h2', null, th));
+    var list = []; pzAll().forEach(function (e) { pzParts(e).forEach(function (x) { if (x.t.th === th) list.push(x); }); });
+    top.appendChild(el('p', 'sub', list.length + ' Teilaufgaben aus allen Prüfungen'));
+    wrap.appendChild(top);
+    var card = el('div', 'card');
+    list.forEach(function (x) { card.appendChild(pzPart(x.e, x.a, x.t, true)); });
+    wrap.appendChild(card);
+    return wrap;
   }
 
   /* ---------- Fächer und Termine ---------- */
