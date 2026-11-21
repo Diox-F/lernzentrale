@@ -965,7 +965,7 @@
       d.appendChild(ul); box.appendChild(d);
     });
     if (!list.length) box.appendChild(el('p', 'empty', 'Gerade gibt es nichts Neues.'));
-    $('neuSub').textContent = alle ? 'Die letzten Änderungen an der Lernzentrale.' : 'Das ist seit deinem letzten Besuch dazugekommen.';
+    $('neuSub').textContent = alle ? 'Die letzten Neuerungen.' : 'Neu seit deinem letzten Besuch.';
     neuPending = alle ? [] : list;
     openModal('mNeu');
   }
