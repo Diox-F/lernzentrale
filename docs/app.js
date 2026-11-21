@@ -486,7 +486,7 @@
       var col = el('div', 'bk-side'); col.appendChild(el('h3', null, side === 'soll' ? 'Soll' : 'an Haben'));
       sides[side] = [];
       for (var i = 0; i < Math.max(2, (it[side] || []).length); i++) {
-        var r = el('div', 'bk-row'); var k = el('input'); k.type = 'text'; k.inputMode = 'numeric'; k.maxLength = 4; k.placeholder = 'Konto'; k.setAttribute('aria-label', side + ' Konto ' + (i + 1));
+        var r = el('div', 'bk-row'); var k = el('input'); k.type = 'text'; k.inputMode = 'numeric'; k.maxLength = 4; k.placeholder = 'Konto (4-stellig)'; k.setAttribute('aria-label', side + ' Konto ' + (i + 1));
         var b = el('input'); b.type = 'text'; b.inputMode = 'decimal'; b.placeholder = 'Betrag in €'; b.setAttribute('aria-label', side + ' Betrag ' + (i + 1));
         r.appendChild(k); r.appendChild(b); col.appendChild(r); sides[side].push([k, b]);
       }
@@ -663,14 +663,14 @@
     var kp = (window.LZ_CONTENT || {}).kontenplan; if (!kp) return null;
     var d = el('details', 'kp'); if (open) d.open = true;
     d.appendChild(el('summary', null, 'Kontenplan: ' + kp.titel));
-    var q = el('input'); q.type = 'search'; q.placeholder = 'Konto oder Name suchen, z. B. 440 oder Bank'; q.setAttribute('aria-label', 'Kontenplan durchsuchen'); d.appendChild(q);
+    var q = el('input'); q.type = 'search'; q.placeholder = 'Konto oder Name suchen, z. B. 4400 oder Bank'; q.setAttribute('aria-label', 'Kontenplan durchsuchen'); d.appendChild(q);
     var w = el('div', 'tw'), t = el('table'), hr = el('tr');
     ['Konto', 'Name', 'Klasse'].forEach(function (x) { hr.appendChild(el('th', null, x)); }); t.appendChild(hr);
     var rows = [];
     kp.klassen.forEach(function (k) { k.konten.forEach(function (c) { var tr = el('tr'); tr.appendChild(el('td', 'num', c[0])); tr.appendChild(el('td', null, c[1])); tr.appendChild(el('td', null, k.k + ' · ' + k.name)); t.appendChild(tr); rows.push([tr, (c[0] + ' ' + c[1] + ' ' + k.name).toLowerCase()]); }); });
     w.appendChild(t); d.appendChild(w);
     q.addEventListener('input', function () { var s = q.value.trim().toLowerCase().replace(/skont[oi]/g, 'skont'); rows.forEach(function (r) { r[0].hidden = !!s && r[1].indexOf(s) < 0; }); });
-    d.appendChild(el('p', 'note', 'Quelle: ' + kp.quelle + '. Unterkonten haben eine Ziffer mehr (2001 gehört zu 200).'));
+    d.appendChild(el('p', 'note', 'Quelle: ' + kp.quelle + '. Kontonummern sind immer vierstellig, kürzere Nummern werden hinten mit Nullen aufgefüllt (440 wird 4400). Unterkonten erkennt man an der letzten Ziffer: 2001 gehört zu 2000.'));
     return d;
   }
 
