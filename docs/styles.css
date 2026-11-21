@@ -399,3 +399,10 @@ html, body { touch-action: manipulation; }
 .kann-p[aria-pressed="true"] { color: var(--ok); background: var(--ok-b); box-shadow: inset 0 0 0 1.5px rgba(74,222,128,.6); }
 .kann-l { font-size: 11.5px; }
 @media (max-width: 760px) { .kann-row { grid-template-columns: minmax(0, 1fr); } .kann-r { justify-items: start; } }
+
+/* Videos: direkte Links mit Kanal */
+.vids a { border-radius: 16px; align-items: flex-start; max-width: 100%; }
+.vids a span { display: grid; gap: 2px; min-width: 0; }
+.vids a b { font-weight: 500; overflow-wrap: anywhere; }
+.vids a small { font-size: 11.5px; color: var(--muted); }
+.vids a i { flex: none; margin-top: 2px; }

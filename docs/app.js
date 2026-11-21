@@ -298,7 +298,7 @@
       var top = el('div', 'meta'); top.appendChild(el('span', null, fach(x.fach).name)); top.appendChild(el('span', null, x.erkl && x.erkl.length ? 'Erklärung' : 'nur Fragen')); c.appendChild(top);
       c.appendChild(el('b', null, x.titel));
       var m = mastery(x), bar = el('div', 'bar'), i = el('i'); i.style.width = (m || 0) + '%'; if (m >= 75) i.className = 'ok'; bar.appendChild(i); c.appendChild(bar);
-      var meta = el('div', 'meta'); meta.appendChild(el('span', null, (m == null ? 0 : m) + ' % sicher')); meta.appendChild(el('span', null, (x.videos || []).length ? 'mit Videos' : '')); c.appendChild(meta);
+      var meta = el('div', 'meta'); meta.appendChild(el('span', null, (m == null ? 0 : m) + ' % sicher')); meta.appendChild(el('span', null, (x.videos || []).filter(function (v) { return v.url; }).length ? 'mit Videos' : '')); c.appendChild(meta);
       c.addEventListener('click', function () { lern.topic = x.id; renderLernen(); toTop(); });
       grid.appendChild(c);
     });
@@ -384,11 +384,14 @@
     c.appendChild(doc); wrap.appendChild(c);
     if (t.fach === 'lf8') { var kpb = kontenplanBox(); if (kpb) { var kc = el('div', 'card'); kc.appendChild(kpb); wrap.appendChild(kc); } }
     // Videos
+    var vids = (t.videos || []).filter(function (v) { return v.url; });
+    if (vids.length) {
     var vc = el('div', 'card'); vc.appendChild(el('h2', null, 'Videos dazu'));
-    vc.appendChild(el('p', 'sub', 'Öffnet die YouTube-Suche in einem neuen Tab. Nimm am besten ein kurzes Video von einer Schule oder einem Lehrkanal.'));
-    var vs = el('div', 'vids'), vids = (t.videos && t.videos.length) ? t.videos : [{ titel: t.titel + ' einfach erklärt', q: t.titel + ' einfach erklärt' }];
-    vids.forEach(function (v) { var a = el('a'); a.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(v.q); a.target = '_blank'; a.rel = 'noopener'; a.appendChild(el('i', null, '▶')); a.appendChild(document.createTextNode(v.titel)); vs.appendChild(a); });
+    vc.appendChild(el('p', 'sub', 'Ausgesuchte Erklärvideos, öffnen auf YouTube. Achtung: In Videos können Kontonummern oder Begriffe anders heißen als bei euch.'));
+    var vs = el('div', 'vids');
+    vids.forEach(function (v) { var a = el('a'); a.href = v.url; a.target = '_blank'; a.rel = 'noopener'; a.appendChild(el('i', null, '▶')); var tx = el('span'); tx.appendChild(el('b', null, v.titel)); if (v.kanal) tx.appendChild(el('small', null, v.kanal)); a.appendChild(tx); vs.appendChild(a); });
     vc.appendChild(vs); wrap.appendChild(vc);
+    }
     // Weiter üben
     var pr = el('div', 'row-btns');
     var b1 = el('button', 'btn', 'Karteikarten zu diesem Thema'); b1.type = 'button'; b1.addEventListener('click', function () { startKarten({ themen: [t.id], label: t.titel }); }); pr.appendChild(b1);
