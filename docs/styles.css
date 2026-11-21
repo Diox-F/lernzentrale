@@ -382,3 +382,20 @@ html, body { touch-action: manipulation; }
 .neu-h b { font-weight: 600; color: var(--title); }
 .neu-ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 8px; line-height: 1.5; font-size: 13.5px; }
 .neu-ul .chip { min-height: 28px; padding: 3px 11px; vertical-align: middle; }
+
+/* Ich-Kann-Listen */
+.kann-card { box-shadow: inset 0 0 0 1px rgba(74,222,128,.35); background: linear-gradient(180deg, rgba(74,222,128,.10), rgba(255,255,255,0)), var(--raise); }
+.kann-list { gap: 10px; }
+.kann-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; gap: 8px 14px; align-items: center; padding: 12px 14px; border-radius: var(--r-md); background: var(--raise); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.kann-row > .row-btns { grid-column: 1 / -1; }
+.kann-t { display: flex; gap: 10px; align-items: baseline; font-size: 14px; line-height: 1.45; color: var(--title); overflow-wrap: anywhere; }
+.kann-n { flex: none; min-width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11.5px; font-weight: 600; background: rgba(255,255,255,.12); color: var(--body); }
+.kann-st { display: grid; gap: 4px; }
+.kann-r { display: grid; gap: 3px; justify-items: end; }
+.kann-pl { display: flex; gap: 4px; }
+.kann-p { all: unset; box-sizing: border-box; cursor: pointer; width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: rgba(255,255,255,.45); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.kann-p:hover { color: #fff; background: rgba(255,255,255,.12); }
+.kann-p:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.kann-p[aria-pressed="true"] { color: var(--ok); background: var(--ok-b); box-shadow: inset 0 0 0 1.5px rgba(74,222,128,.6); }
+.kann-l { font-size: 11.5px; }
+@media (max-width: 760px) { .kann-row { grid-template-columns: minmax(0, 1fr); } .kann-r { justify-items: start; } }

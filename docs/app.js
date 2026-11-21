@@ -29,7 +29,7 @@
 
   /* ---------- Daten ---------- */
   var S = { faecher: [], themen: [], termine: [], loaded: { faecher: false, themen: false, termine: false } };
-  var P = { items: {}, tage: {}, klausuren: [], frei: {}, pruef: {}, neu: [] };   // Lernstand (privat)
+  var P = { items: {}, tage: {}, klausuren: [], frei: {}, pruef: {}, neu: [], kann: {} };   // Lernstand (privat)
   var CFG = { url: 'https://zqczfssjrukuszvevzcf.supabase.co', key: 'sb_publishable_2Er5-3zhFQZ1BvkNSeTDTg_8c2yilhw' };
   var CODE = null, ME = { name: '', admin: false }, saveT = null, dirty = false, lastRefresh = 0;
   var canSpeak = 'speechSynthesis' in window;
@@ -69,7 +69,7 @@
     P.tage[today()] = (P.tage[today()] || 0) + 1;
     queueSave(); renderBadges();
   }
-  function normP(o) { o = o || {}; return { items: Object.assign({}, o.items), tage: Object.assign({}, o.tage), klausuren: (o.klausuren || []).slice(), frei: Object.assign({}, o.frei), pruef: Object.assign({}, o.pruef), neu: (o.neu || []).slice() }; }
+  function normP(o) { o = o || {}; return { items: Object.assign({}, o.items), tage: Object.assign({}, o.tage), klausuren: (o.klausuren || []).slice(), frei: Object.assign({}, o.frei), pruef: Object.assign({}, o.pruef), neu: (o.neu || []).slice(), kann: Object.assign({}, o.kann) }; }
   function queueSave() { dirty = true; lsSet(K('dirty'), true); lsSet(K('stand'), P); clearTimeout(saveT); saveT = setTimeout(saveNow, 1200); }
   function saveNow() {
     clearTimeout(saveT); saveT = null;
@@ -204,7 +204,7 @@
   $('bStartToday').addEventListener('click', function () { var p = todayPlan().slice(0, 3); if (p.length) startKarten({ themen: p.map(function (x) { return x.t.id; }), label: 'Heute lernen', mixed: true }); });
 
   /* ---------- Erklärungen ---------- */
-  var lern = { fach: '', topic: null };
+  var lern = { fach: '', topic: null, kann: null };
   function openTopic(id) { lern.topic = id; show('lernen'); }
   var SVGNS = 'http://www.w3.org/2000/svg';
   function sv(tag, attrs, text) { var e = document.createElementNS(SVGNS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
@@ -283,10 +283,14 @@
     if (!S.loaded.themen) { body.appendChild(el('p', 'empty', 'Lernstoff wird geladen …')); return; }
     var t = lern.topic && S.themen.filter(function (x) { return x.id === lern.topic; })[0];
     if (t) { body.appendChild(topicPage(t)); return; }
+    var kl = lern.kann && kannListen().filter(function (x) { return x.id === lern.kann; })[0];
+    if (kl) { body.appendChild(kannPage(kl)); return; }
     var chips = el('div', 'chips'); chips.style.marginBottom = '14px';
     var mk = function (id, label) { var c = el('button', 'chip', label); c.type = 'button'; c.setAttribute('aria-pressed', String(lern.fach === id)); c.addEventListener('click', function () { lern.fach = id; renderLernen(); }); chips.appendChild(c); };
     mk('', 'Alle'); S.faecher.slice().sort(function (a, b) { return (a.reihe || 99) - (b.reihe || 99); }).forEach(function (f) { if (themenVon(f.id).length) mk(f.id, f.name); });
     body.appendChild(chips);
+    var kls = kannListen().filter(function (x) { var tm = kannTermin(x); return (!lern.fach || x.fach === lern.fach) && (!tm || daysTo(tm.datum) >= -1); });
+    if (kls.length) { var kg = el('div', 'tgrid'); kg.style.marginBottom = '14px'; kls.forEach(function (x) { kg.appendChild(kannCard(x)); }); body.appendChild(kg); }
     var grid = el('div', 'tgrid'), ths = themenVon(lern.fach);
     if (!ths.length) grid.appendChild(el('p', 'empty', 'Noch keine Themen. Lade Notizen hoch.'));
     ths.forEach(function (x) {
@@ -299,6 +303,74 @@
       grid.appendChild(c);
     });
     body.appendChild(grid);
+  }
+  /* ---------- Ich-Kann-Listen (Checkliste der Klassenarbeit mit Selbsteinschätzung) ---------- */
+  var KANN_STUFE = ['', 'Noch gar nicht', 'Ein bisschen', 'Teilweise', 'Ziemlich gut', 'Sicher'];
+  function kannListen() { return (window.LZ_CONTENT || {}).kannlisten || []; }
+  function themaById(id) { return S.themen.filter(function (x) { return x.id === id; })[0] || null; }
+  function kannStand(p) { var s = 0, n = 0; p.themen.forEach(function (id) { var t = themaById(id), m = t && mastery(t); if (m != null) { s += m; n++; } }); return n ? Math.round(s / n) : 0; }
+  function kannSelbst(kl, p) { var s = P.kann && P.kann[kl.id]; return (s && s[p.id]) || 0; }
+  function kannSet(kl, p, v) { if (!P.kann) P.kann = {}; var s = P.kann[kl.id] || (P.kann[kl.id] = {}); if (v) s[p.id] = v; else delete s[p.id]; queueSave(); }
+  function pflanze(n) {
+    var top = 18 - n * 2.6, s = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">';
+    s += '<path d="M4 22.5c1.5-3.2 4.6-4.4 8-4.4s6.5 1.2 8 4.4z" fill="currentColor" opacity=".55"/>';
+    s += '<path d="M12 18.5V' + top + '" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/>';
+    for (var i = 0; i < n; i++) {
+      var y = 17 - i * 2.6, l = i % 2 === 0, cx = l ? 8.6 : 15.4, rx = 2.6 + i * 0.35;
+      s += '<ellipse cx="' + cx + '" cy="' + y + '" rx="' + rx + '" ry="1.6" transform="rotate(' + (l ? -24 : 24) + ' ' + cx + ' ' + y + ')" fill="currentColor"/>';
+    }
+    var w = el('span'); w.innerHTML = s + '</svg>'; return w.firstChild;
+  }
+  function kannTermin(kl) { return S.termine.filter(function (x) { return x.id === kl.termin; })[0] || null; }
+  function kannCard(kl) {
+    var b = el('button', 'tcard kann-card'); b.type = 'button';
+    var tm = kannTermin(kl), top = el('div', 'meta');
+    top.appendChild(el('span', null, fach(kl.fach).name + ' · Ich-Kann-Liste'));
+    top.appendChild(el('span', null, tm ? fmtDate(tm.datum) + (daysTo(tm.datum) >= 0 ? ' · in ' + daysTo(tm.datum) + ' T.' : '') : ''));
+    b.appendChild(top); b.appendChild(el('b', null, kl.titel));
+    var sum = 0, selbst = 0; kl.punkte.forEach(function (p) { sum += kannStand(p); if (kannSelbst(kl, p)) selbst++; });
+    var pct = Math.round(sum / kl.punkte.length), bar = el('div', 'bar'), i = el('i'); i.style.width = pct + '%'; if (pct >= 75) i.className = 'ok'; bar.appendChild(i); b.appendChild(bar);
+    var meta = el('div', 'meta'); meta.appendChild(el('span', null, pct + ' % sicher (aus deinen Übungen)')); meta.appendChild(el('span', null, selbst + ' von ' + kl.punkte.length + ' selbst eingeschätzt')); b.appendChild(meta);
+    b.addEventListener('click', function () { lern.kann = kl.id; lern.topic = null; renderLernen(); toTop(); });
+    return b;
+  }
+  function kannPage(kl) {
+    var wrap = el('div', 'view');
+    var nav = el('div', 'row-btns'); var back = el('button', 'chip', '← Alle Themen'); back.type = 'button'; back.addEventListener('click', function () { lern.kann = null; renderLernen(); toTop(); }); nav.appendChild(back); wrap.appendChild(nav);
+    var hd = el('div', 'card'), tm = kannTermin(kl);
+    var h = el('div'); h.appendChild(el('h2', null, kl.titel));
+    h.appendChild(el('p', 'sub', (tm ? 'Klassenarbeit ' + fmtDate(tm.datum) + (daysTo(tm.datum) >= 0 ? ' · noch ' + daysTo(tm.datum) + ' Tage' : '') + ' · ' : '') + 'Quelle: ' + kl.quelle));
+    hd.appendChild(h);
+    hd.appendChild(el('p', 'note', 'Wie auf deinem Blatt: Tippe die Pflanze an, die zu dir passt (klein = kann ich noch nicht, groß = kann ich sicher). Der Balken zeigt, wie sicher du laut deinen Übungen bist. „Üben“ startet genau die passenden Karteikarten.'));
+    var all = el('div', 'row-btns'); var ub = el('button', 'btn', 'Alles für diese Arbeit üben'); ub.type = 'button';
+    ub.addEventListener('click', function () { var ids = []; kl.punkte.forEach(function (p) { p.themen.forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); }); }); startKarten({ themen: ids, label: kl.titel, mixed: true }); });
+    all.appendChild(ub); hd.appendChild(all);
+    wrap.appendChild(hd);
+    var list = el('div', 'card kann-list');
+    kl.punkte.forEach(function (p, idx) {
+      var row = el('div', 'kann-row');
+      var txt = el('div', 'kann-t'); txt.appendChild(el('span', 'kann-n', String(idx + 1))); txt.appendChild(el('span', null, 'Ich kann ' + p.t)); row.appendChild(txt);
+      var pct = kannStand(p), bar = el('div', 'bar'), i = el('i'); i.style.width = pct + '%'; if (pct >= 75) i.className = 'ok'; bar.appendChild(i);
+      var st = el('div', 'kann-st'); st.appendChild(bar); st.appendChild(el('span', 'note', pct + ' % sicher')); row.appendChild(st);
+      var pl = el('div', 'kann-pl'); pl.setAttribute('role', 'group'); pl.setAttribute('aria-label', 'Selbsteinschätzung');
+      var cur = kannSelbst(kl, p);
+      for (var v = 1; v <= 5; v++) (function (v) {
+        var b = el('button', 'kann-p'); b.type = 'button'; b.title = KANN_STUFE[v]; b.setAttribute('aria-label', KANN_STUFE[v]); b.setAttribute('aria-pressed', String(cur === v));
+        b.appendChild(pflanze(v));
+        b.addEventListener('click', function () { var now = kannSelbst(kl, p) === v ? 0 : v; kannSet(kl, p, now); [].forEach.call(pl.children, function (x, j) { x.setAttribute('aria-pressed', String(now === j + 1)); }); lbl.textContent = now ? KANN_STUFE[now] : 'Noch nicht eingeschätzt'; });
+        pl.appendChild(b);
+      })(v);
+      var lbl = el('span', 'note kann-l', cur ? KANN_STUFE[cur] : 'Noch nicht eingeschätzt');
+      var right = el('div', 'kann-r'); right.appendChild(pl); right.appendChild(lbl); row.appendChild(right);
+      var acts = el('div', 'row-btns');
+      var t0 = themaById(p.themen[0]);
+      if (t0 && t0.erkl && t0.erkl.length) { var rd = el('button', 'chip', 'Lesen'); rd.type = 'button'; rd.addEventListener('click', function () { lern.topic = t0.id; renderLernen(); toTop(); }); acts.appendChild(rd); }
+      var go = el('button', 'chip', 'Üben'); go.type = 'button'; go.addEventListener('click', function () { startKarten({ themen: p.themen, label: 'Ich kann ' + p.t }); }); acts.appendChild(go);
+      row.appendChild(acts);
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+    return wrap;
   }
   function topicPage(t) {
     var wrap = el('div', 'view');
@@ -874,6 +946,7 @@
   function neuOffen() { var seen = P.neu || []; return neuListe().filter(function (n) { return seen.indexOf(n.id) < 0; }).slice(0, 4); }
   function neuGesehen(list) { var seen = (P.neu || []).slice(); list.forEach(function (n) { if (seen.indexOf(n.id) < 0) seen.push(n.id); }); P.neu = seen; queueSave(); }
   function neuGehe(p) {
+    if (p.v === 'lernen') lern.kann = p.k || null;
     if (p.f) { if (p.v === 'lernen') { lern.fach = p.f; lern.topic = null; } else if (p.v in filt) { filt[p.v] = p.f; sessions[p.v] = null; } }
     if (p.v === 'pruefungen') { PZ.id = null; PZ.th = ''; }
     show(p.v);
