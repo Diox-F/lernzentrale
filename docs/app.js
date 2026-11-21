@@ -1013,7 +1013,9 @@
   }
   function gate(msg) { $('gateMsg').textContent = msg; $('gate').hidden = false; document.body.classList.add('gated'); }
   var LZ = window.LZ_CONTENT || { faecher: [], themen: [] };
-  S.faecher = LZ.faecher; S.themen = LZ.themen; S.loaded.faecher = true; S.loaded.themen = true;
+  /* Ausgeblendeter Stoff ("aus": true) gehört nicht zur aktuellen Klassenarbeit: nicht üben, nicht anzeigen */
+  function ohneAus(t) { var o = Object.assign({}, t); ['karten', 'mc', 'rechnen', 'frei', 'buchung'].forEach(function (k) { if (t[k]) o[k] = t[k].filter(function (it) { return !it.aus; }); }); if (t.erkl) o.erkl = t.erkl.filter(function (b) { return !b.aus; }); return o; }
+  S.faecher = LZ.faecher; S.themen = (LZ.themen || []).filter(function (t) { return !t.aus; }).map(ohneAus); S.loaded.faecher = true; S.loaded.themen = true;
   CODE = readCode();
   if (!CODE) {
     gate('Öffne die Lernzentrale über deinen persönlichen Link. Den bekommst du von Finn.');
