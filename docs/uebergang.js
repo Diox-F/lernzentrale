@@ -1,6 +1,8 @@
-/* Übergänge: 1. Die Karte wird zur Seite. 2. Zurück geht zurück in die Karte. 3. Menüs starten an ihrem Knopf.
-   Hängt sich an Fenster (.modal mit hidden, <dialog>) und Menüs. An der Bedienung ändert sich nichts:
-   Öffnen und Schließen passieren sofort, nur das Bild gleitet. Bei „Bewegung reduzieren“ ist alles aus. */
+/* Übergänge für jede Interaktion:
+   1. Die Karte wird zur Seite. 2. Zurück geht zurück in die Karte. 3. Menüs starten an ihrem Knopf.
+   4. Alles andere: Was sich nach einem Tippen verschiebt, gleitet an seine neue Stelle; neu gezeichnete Listen gleiten statt
+      zu springen; wirklich Neues blendet weich ein; Bereiche, die erscheinen, blenden ein; Knöpfe geben beim Drücken leicht nach.
+   An der Bedienung ändert sich nichts: alles passiert sofort, nur das Bild gleitet. Bei „Bewegung reduzieren“ ist alles aus. */
 (function () {
   if (window.Uebergang || !Element.prototype.animate) return;
   var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -65,7 +67,7 @@
     var k = karteVon(z), kr = k.getBoundingClientRect();
     if (!kr.width || !kr.height) return;
     var q = { left: quelle.rect.left, top: quelle.rect.top, width: quelle.rect.width, height: quelle.rect.height, r: radius(quelle.el) };
-    z.__uQuelle = quelle.el;
+    z.__uQuelle = quelle.el; z.__uAufAt = Date.now();
     stopp(k); if (z !== k) stopp(z);
     if (z.matches(MENUS)) { menuAuf(k, q, kr); return; }
     seiteAuf(k, q, kr);
@@ -91,6 +93,98 @@
     return a;
   }
 
+  /* ---------- 4) Alle anderen Interaktionen ---------- */
+  var KANDIDAT = 'li, tr, article, section, .card, .tile, .item, .row, .chip, .pill, .tcard, .pc, .mrow, .entry, .stat, button, [data-u-key], [data-n]';
+  var zuletzt = 0, vorher = null, geplant = false, neu = [];
+  function frisch() { return Date.now() - zuletzt < 700; }
+  function sig(el) { return el.tagName + '|' + (typeof el.className === 'string' ? el.className : '') + '|' + (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80); }
+  function schnapp() {
+    vorher = null;
+    if (aus()) return;
+    var pos = new Map(), sigs = new Map(), n = 0, H = innerHeight;
+    var els = document.querySelectorAll(KANDIDAT);
+    for (var i = 0; i < els.length && n < 450; i++) {
+      var e = els[i], r = e.getBoundingClientRect();
+      if (!r.width || !r.height || r.bottom < -40 || r.top > H + 40) continue;
+      pos.set(e, r); var k = sig(e); if (!sigs.has(k)) sigs.set(k, []); sigs.get(k).push(r); n++;
+    }
+    vorher = { pos: pos, sigs: sigs };
+  }
+  function interaktion(e) {
+    if (e.type === 'keydown') {
+      if (e.key !== 'Enter' && e.key !== 'Escape' && e.key !== ' ') return;
+      var t = e.target; if (e.key === ' ' && t && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+    }
+    zuletzt = Date.now(); schnapp();
+  }
+  document.addEventListener('pointerdown', interaktion, true);
+  document.addEventListener('keydown', interaktion, true);
+  function gleite(el, dx, dy) { try { el.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0px 0px' }], { duration: 320, easing: EASE }); } catch (e) {} }
+  function ein(el, i) { try { el.animate([{ opacity: 0, translate: '0px 10px' }, { opacity: 1, translate: '0px 0px' }], { duration: 280, delay: Math.min(i * 22, 220), easing: EASE, fill: 'backwards' }); } catch (e) {} }
+  function kuerzlich(el) {
+    var jetzt = Date.now();
+    for (var p = el, i = 0; p && i < 40; p = p.parentElement, i++) {
+      if ((p.__uEinAt && jetzt - p.__uEinAt < 600) || (p.__uAufAt && jetzt - p.__uAufAt < 600)) return true;
+    }
+    return false;
+  }
+  function nachher() {
+    geplant = false;
+    var v = vorher, liste = neu; neu = [];
+    if (!v || aus()) return;
+    var H = innerHeight, bewegte = [], animiert = new Set();
+    function vorfahr(el) { for (var p = el.parentElement, i = 0; p && i < 12; p = p.parentElement, i++) if (animiert.has(p)) return true; return false; }
+    /* a) Gebliebene Elemente gleiten an ihre neue Stelle */
+    v.pos.forEach(function (alt, el) {
+      if (!el.isConnected) return;
+      var r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
+      var dx = alt.left - r.left, dy = alt.top - r.top;
+      if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+      if (Math.abs(dy) > H || Math.abs(dx) > innerWidth) return;
+      bewegte.push([el, dx, dy]);
+    });
+    /* Fast alles um denselben Betrag verschoben: das war Scrollen oder ein Seitenwechsel, nicht animieren */
+    if (bewegte.length > 5) {
+      var zaehl = {}, max = 0;
+      bewegte.forEach(function (b) { var k = Math.round(b[1] / 3) + ',' + Math.round(b[2] / 3); zaehl[k] = (zaehl[k] || 0) + 1; if (zaehl[k] > max) max = zaehl[k]; });
+      if (max > bewegte.length * 0.7) bewegte = [];
+    }
+    bewegte.forEach(function (b) { if (kuerzlich(b[0]) || vorfahr(b[0])) return; animiert.add(b[0]); gleite(b[0], b[1], b[2]); });
+    /* b) Neu Eingefügtes: gab es das vorher schon (neu gezeichnet), gleitet es von dort; sonst blendet es ein */
+    var oben = liste.filter(function (el) { return el.isConnected && !/^(SCRIPT|STYLE|LINK|META|TEMPLATE)$/i.test(el.tagName); });
+    oben = oben.filter(function (el) { return !oben.some(function (o) { return o !== el && o.contains(el); }); }).slice(0, 80);
+    var nr = 0;
+    oben.forEach(function (top) {
+      if (kuerzlich(top) || vorfahr(top) || !top.getBoundingClientRect) return;
+      var tr = top.getBoundingClientRect();
+      if (!tr.width || !tr.height || tr.bottom < 0 || tr.top > H) return;
+      var teile = [top].concat(Array.prototype.slice.call(top.querySelectorAll(KANDIDAT), 0, 120)), passend = false;
+      teile.forEach(function (el) {
+        if (!el.matches || !el.matches(KANDIDAT) || vorfahr(el)) return;
+        var l2 = v.sigs.get(sig(el)); if (!l2 || !l2.length) return;
+        var alt = l2.shift(), r = el.getBoundingClientRect();
+        passend = true;
+        var dx = alt.left - r.left, dy = alt.top - r.top;
+        animiert.add(el);
+        if ((Math.abs(dx) >= 2 || Math.abs(dy) >= 2) && Math.abs(dy) < H) gleite(el, dx, dy);
+      });
+      if (!passend && top instanceof HTMLElement) { animiert.add(top); ein(top, nr++); }
+    });
+  }
+  try {
+    new MutationObserver(function (recs) {
+      if (!vorher || !frisch() || aus()) return;
+      for (var i = 0; i < recs.length; i++) { var a = recs[i].addedNodes; for (var j = 0; j < a.length; j++) if (a[j].nodeType === 1) neu.push(a[j]); }
+      if (!geplant) { geplant = true; requestAnimationFrame(nachher); }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) {}
+  /* Knöpfe geben beim Drücken leicht nach (eigene Eigenschaft „scale“, stört vorhandene transform-Werte nicht) */
+  try {
+    var st = document.createElement('style');
+    st.textContent = '@media (prefers-reduced-motion: no-preference){:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow):active{scale:.97}:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow){transition-property:scale,background-color,color,border-color,box-shadow,opacity;transition-duration:.16s;transition-timing-function:ease}}';
+    (document.head || document.documentElement).appendChild(st);
+  } catch (e) {}
+
   /* 1) Fenster und Menüs, die über hidden auf- und zugehen */
   var HD = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'hidden');
   if (HD && HD.set) {
@@ -98,7 +192,14 @@
       configurable: true, enumerable: HD.enumerable, get: HD.get,
       set: function (v) {
         var el = this;
-        if (aus() || !el.matches || !(el.matches(FENSTER) || el.matches(MENUS))) return HD.set.call(el, v);
+        if (aus() || !el.matches) return HD.set.call(el, v);
+        if (!(el.matches(FENSTER) || el.matches(MENUS))) {
+          /* Bereich erscheint nach einem Tippen: weich einblenden */
+          var vorher0 = !!HD.get.call(el);
+          HD.set.call(el, v);
+          if (vorher0 && !v && frisch()) { el.__uEinAt = Date.now(); ein(el, 0); }
+          return;
+        }
         var war = !!HD.get.call(el), wird = !!v;
         if (el.__uZu) { el.__uZu(); }
         if (!war && wird) {
@@ -156,12 +257,12 @@
     seite: function (ziel, vonRechteck) {
       if (aus() || !ziel || !vonRechteck) return;
       var kr = ziel.getBoundingClientRect(); if (!kr.width || !kr.height) return;
-      stopp(ziel); seiteAuf(ziel, vonRechteck, kr);
+      ziel.__uEinAt = Date.now(); stopp(ziel); seiteAuf(ziel, vonRechteck, kr);
     },
     zurueck: function (karte, vonRechteck) {
       if (aus() || !karte || !vonRechteck) return;
       var kr = karte.getBoundingClientRect(); if (!sichtbar(kr)) return;
-      stopp(karte);
+      karte.__uEinAt = Date.now(); stopp(karte);
       var a = bildA(karte, vonRechteck, kr), b = bildB(karte);
       a.opacity = 0.2;
       karte.animate([a, b], { duration: DAUER, easing: EASE });
