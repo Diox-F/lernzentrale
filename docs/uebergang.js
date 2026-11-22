@@ -31,7 +31,11 @@
     var r = tipp.el.getBoundingClientRect();
     return sichtbar(r) ? { el: tipp.el, rect: r } : null;
   }
-  function radius(el) { var v = parseFloat(getComputedStyle(el).borderTopLeftRadius); return isFinite(v) ? v : 0; }
+  /* Rundung einer Karte, höchstens die halbe Höhe/Breite (Pillen haben oft 999px, sonst wächst das Fenster als Oval) */
+  function radius(el) {
+    var v = parseFloat(getComputedStyle(el).borderTopLeftRadius); if (!isFinite(v)) return 0;
+    var r = el.getBoundingClientRect(); return Math.max(0, Math.min(v, r.width / 2, r.height / 2));
+  }
   function karteVon(z) {
     if (z.tagName === 'DIALOG' || z.matches(MENUS)) return z;
     var k = z.querySelector(':scope > .modal-card') || firstSichtbaresKind(z);
@@ -360,6 +364,15 @@
       if (!geplant && (neu.length || klasseNeu.length)) { geplant = true; requestAnimationFrame(nachher); }
     }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
   } catch (e) {}
+  /* Aufklappbare Bereiche (<details>): der Inhalt blendet beim Öffnen weich ein */
+  document.addEventListener('toggle', function (e) {
+    var d = e.target;
+    if (!d || d.tagName !== 'DETAILS' || !d.open || aus() || !frisch() || ausgenommen(d)) return;
+    for (var c = d.firstElementChild, i = 0; c; c = c.nextElementSibling) {
+      if (c.tagName === 'SUMMARY') continue;
+      c.__uEinAt = Date.now(); sanftEin(c, '0px -8px', 800, i++ * 60, 650);
+    }
+  }, true);
   /* Knöpfe geben beim Drücken leicht nach (eigene Eigenschaft „scale“, stört vorhandene transform-Werte nicht) */
   try {
     var st = document.createElement('style');
