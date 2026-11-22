@@ -6,7 +6,7 @@
 (function () {
   if (window.Uebergang || !Element.prototype.animate) return;
   var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-  var EASE = 'cubic-bezier(.22,1,.36,1)', ZU = 'cubic-bezier(.45,0,.2,1)', DAUER = 1080, MENU_DAUER = 720;
+  var EASE = 'cubic-bezier(.22,1,.36,1)', ZU = 'cubic-bezier(.45,0,.2,1)', DAUER = 1350, MENU_DAUER = 900, GLAS_DAUER = 1500;
   var FENSTER = '.modal, [data-uebergang]';
   var MENUS = '#skyMenu, [role="menu"], [data-uebergang="menu"]';
   var QUELLE = 'button, a, [role="button"], [role="option"], [data-u-key], li, [tabindex]';
@@ -33,6 +33,17 @@
     return k || z;
   }
   function stopp(el) { if (el && el.getAnimations) el.getAnimations({ subtree: false }).forEach(function (a) { a.cancel(); }); }
+  /* Abgedunkelter Hintergrund eines Fensters (.modal): Farbe und Milchglas ziehen sich langsam auf */
+  function hintergrundAuf(z, auf, dauer) {
+    try {
+      var cs = getComputedStyle(z), farbe = cs.backgroundColor, b = glas(z);
+      var leer = { backgroundColor: 'rgba(0, 0, 0, 0)' }, voll = { backgroundColor: farbe };
+      if (b) { leer.backdropFilter = leer.webkitBackdropFilter = 'blur(0px)'; voll.backdropFilter = voll.webkitBackdropFilter = b; }
+      z.animate(auf ? [leer, voll] : [voll, leer], { duration: auf ? GLAS_DAUER : (dauer || 600), easing: auf ? 'cubic-bezier(.33,1,.68,1)' : ZU, fill: auf ? 'none' : 'forwards' });
+      /* Glasflächen im Fenster (außer der Karte, die sich schon bewegt) blenden ebenfalls weich */
+      if (auf) glasIn(z, 400).forEach(function (g) { if (g !== karteVon(z)) glasEin(g, 0); });
+    } catch (e) {}
+  }
   /* Abgedunkelter Hintergrund eines <dialog> blendet mit */
   function hintergrund(z, auf, dauer) {
     if (z.tagName !== 'DIALOG') return;
@@ -53,7 +64,7 @@
   }
   function seiteZu(k, q, kr) {
     var a = bildA(k, q, kr), b = bildB(k);
-    return k.animate([b, { opacity: 1, offset: 0.55 }, a], { duration: DAUER * 0.9, easing: ZU, fill: 'forwards' });
+    return k.animate([b, { opacity: 1, offset: 0.55 }, a], { duration: 1000, easing: ZU, fill: 'forwards' });
   }
   /* Menü wächst aus seinem Knopf */
   function menuBild(k, q, kr) {
@@ -71,8 +82,8 @@
     stopp(k); if (z !== k) stopp(z);
     if (z.matches(MENUS)) { menuAuf(k, q, kr); return; }
     seiteAuf(k, q, kr);
-    hintergrund(z, true, 860);
-    if (z !== k) z.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 820, easing: 'cubic-bezier(.33,1,.68,1)' });
+    hintergrund(z, true, GLAS_DAUER);
+    if (z !== k) hintergrundAuf(z, true);
   }
   /* Vor dem Schließen messen, solange noch alles sichtbar ist */
   function vorSchliessen(z) {
@@ -88,8 +99,8 @@
     if (info.q && z.matches(MENUS)) a = menuZu(info.k, info.q, info.kr);
     else if (info.q) a = seiteZu(info.k, info.q, info.kr);
     else a = info.k.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.98)' }], { duration: 600, easing: ZU, fill: 'forwards' });
-    if (z !== info.k) z.animate([{ opacity: 1 }, { opacity: 0 }], { duration: info.q ? DAUER * 0.9 : 600, easing: ZU, fill: 'forwards' });
-    hintergrund(z, false, info.q ? DAUER * 0.9 : 600);
+    if (z !== info.k) hintergrundAuf(z, false, info.q ? 1000 : 600);
+    hintergrund(z, false, info.q ? 1000 : 600);
     return a;
   }
 
@@ -121,10 +132,43 @@
   document.addEventListener('pointerdown', interaktion, true);
   document.addEventListener('keydown', interaktion, true);
   function gleite(el, dx, dy) { try { el.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0px 0px' }], { duration: 1000, easing: EASE }); } catch (e) {} }
-  function ein(el, i) { try { el.animate([{ opacity: 0, translate: '0px 8px' }, { opacity: 1, translate: '0px 0px' }], { duration: 900, delay: Math.min(i * 70, 560), easing: EASE, fill: 'backwards' }); } catch (e) {} }
+  function ein(el, i) { sanftEin(el, '0px 8px', 900, Math.min(i * 70, 560)); }
   function ausgenommen(el) { return !!(el && el.closest && el.closest('[data-u-aus]')); }
+  /* ---------- Milchglas sanft: Glasflächen selbst einblenden, nie ihren Elternbereich ---------- */
+  function glas(el) {
+    try { var cs = getComputedStyle(el), b = cs.backdropFilter || cs.webkitBackdropFilter || 'none'; return b && b !== 'none' ? b : null; } catch (e) { return null; }
+  }
+  function glasIn(root, max) {
+    var set = [], alle = root.querySelectorAll('*');
+    for (var i = 0; i < alle.length && i < (max || 2500); i++) if (glas(alle[i])) set.push(alle[i]);
+    return set;
+  }
+  function glasEin(el, verzoegerung) {
+    var b = glas(el), k0 = { opacity: 0 }, k1 = { opacity: 1 };
+    if (b) { k0.backdropFilter = 'blur(0px)'; k1.backdropFilter = b; k0.webkitBackdropFilter = 'blur(0px)'; k1.webkitBackdropFilter = b; }
+    try { el.animate([k0, k1], { duration: GLAS_DAUER, delay: verzoegerung || 0, easing: 'cubic-bezier(.33,1,.68,1)', fill: 'backwards' }); } catch (e) {}
+  }
+  /* Bereich einblenden: enthält er Glas, bekommt nur der Bereich die Bewegung und jede Fläche darin ihr eigenes Einblenden */
+  function sanftEin(root, start, dauer, verzoegerung) {
+    var gl = glasIn(root);
+    if (!gl.length && !glas(root)) {
+      try { root.animate([{ opacity: 0, translate: start }, { opacity: 1, translate: '0px 0px' }], { duration: dauer, delay: verzoegerung || 0, easing: EASE, fill: 'backwards' }); } catch (e) {}
+      return;
+    }
+    try { root.animate([{ translate: start }, { translate: '0px 0px' }], { duration: dauer, delay: verzoegerung || 0, easing: EASE, fill: 'backwards' }); } catch (e) {}
+    if (glas(root) && !gl.length) { glasEin(root, verzoegerung); return; }
+    var ziele = [];
+    (function geh(el) {
+      for (var c = el.firstElementChild; c && ziele.length < 250; c = c.nextElementSibling) {
+        if (gl.indexOf(c) >= 0) { ziele.push(c); continue; }
+        var drin = false; for (var j = 0; j < gl.length; j++) if (c.contains(gl[j])) { drin = true; break; }
+        if (drin) geh(c); else ziele.push(c);
+      }
+    })(root);
+    ziele.forEach(function (z) { glasEin(z, verzoegerung); });
+  }
   function wechsel(el, richtung) {
-    try { el.animate([{ opacity: 0, translate: (richtung * 36) + 'px 0px' }, { opacity: 1, translate: '0px 0px' }], { duration: Math.round(DAUER * 0.9), easing: EASE, fill: 'backwards' }); } catch (e) {}
+    sanftEin(el, (richtung * 36) + 'px 0px', 1000, 0);
   }
   function kuerzlich(el) {
     if (ausgenommen(el)) return true;
@@ -203,6 +247,25 @@
     var st = document.createElement('style');
     st.textContent = '@media (prefers-reduced-motion: no-preference){:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow):active{scale:.985}:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow){transition-property:scale,background-color,color,border-color,box-shadow,opacity;transition-duration:.45s;transition-timing-function:cubic-bezier(.22,1,.36,1)}}';
     (document.head || document.documentElement).appendChild(st);
+  } catch (e) {}
+
+  /* ---------- 5) Festes Format: kein Zoomen, kein seitliches Verschieben, kein Gummiband ---------- */
+  try {
+    var festeAnsicht = function () {
+      var vp = document.querySelector('meta[name="viewport"]');
+      if (!vp) { vp = document.createElement('meta'); vp.name = 'viewport'; vp.content = 'width=device-width,initial-scale=1,viewport-fit=cover'; (document.head || document.documentElement).appendChild(vp); }
+      if (!/maximum-scale/.test(vp.content)) vp.setAttribute('content', vp.content + ', maximum-scale=1, user-scalable=no');
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', festeAnsicht); else festeAnsicht();
+    var st2 = document.createElement('style');
+    st2.textContent = 'html{touch-action:pan-x pan-y;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}html,body{overflow-x:clip;max-width:100%}@supports not (overflow-x:clip){html,body{overflow-x:hidden}}body{overscroll-behavior:none}';
+    (document.head || document.documentElement).appendChild(st2);
+    var zoomErlaubt = function (t) { return !!(t && t.closest && t.closest('canvas, [data-zoom-ok]')); };
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (typ) {
+      document.addEventListener(typ, function (e) { if (!zoomErlaubt(e.target)) e.preventDefault(); }, { passive: false });
+    });
+    document.addEventListener('touchmove', function (e) { if (e.touches && e.touches.length > 1 && !zoomErlaubt(e.target)) e.preventDefault(); }, { passive: false });
+    /* Doppeltipp-Zoom ist durch touch-action: pan-x pan-y schon aus; schnelle Doppeltipps auf Knöpfe bleiben erhalten */
   } catch (e) {}
 
   /* 1) Fenster und Menüs, die über hidden auf- und zugehen */
