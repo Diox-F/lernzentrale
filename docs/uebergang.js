@@ -95,7 +95,8 @@
 
   /* ---------- 4) Alle anderen Interaktionen ---------- */
   var KANDIDAT = 'li, tr, article, section, .card, .tile, .item, .row, .chip, .pill, .tcard, .pc, .mrow, .entry, .stat, button, [data-u-key], [data-n]';
-  var zuletzt = 0, vorher = null, geplant = false, neu = [];
+  var zuletzt = 0, vorher = null, geplant = false, neu = [], klasseNeu = [];
+  var VERSTECKT = /(^|\s)(hide|hidden|is-hidden|d-none|collapsed|closed|off|inactive)(\s|$)/;
   function frisch() { return Date.now() - zuletzt < 700; }
   function sig(el) { return el.tagName + '|' + (typeof el.className === 'string' ? el.className : '') + '|' + (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80); }
   function schnapp() {
@@ -121,7 +122,9 @@
   document.addEventListener('keydown', interaktion, true);
   function gleite(el, dx, dy) { try { el.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0px 0px' }], { duration: 320, easing: EASE }); } catch (e) {} }
   function ein(el, i) { try { el.animate([{ opacity: 0, translate: '0px 10px' }, { opacity: 1, translate: '0px 0px' }], { duration: 280, delay: Math.min(i * 22, 220), easing: EASE, fill: 'backwards' }); } catch (e) {} }
+  function ausgenommen(el) { return !!(el && el.closest && el.closest('[data-u-aus]')); }
   function kuerzlich(el) {
+    if (ausgenommen(el)) return true;
     var jetzt = Date.now();
     for (var p = el, i = 0; p && i < 40; p = p.parentElement, i++) {
       if ((p.__uEinAt && jetzt - p.__uEinAt < 600) || (p.__uAufAt && jetzt - p.__uAufAt < 600)) return true;
@@ -130,8 +133,14 @@
   }
   function nachher() {
     geplant = false;
-    var v = vorher, liste = neu; neu = [];
+    var v = vorher, liste = neu, klassen = klasseNeu; neu = []; klasseNeu = [];
     if (!v || aus()) return;
+    /* Bereiche, die per Klasse sichtbar wurden (z. B. „hide“ entfernt), blenden ein */
+    klassen.forEach(function (el) {
+      if (!el.isConnected || kuerzlich(el)) return;
+      var r = el.getBoundingClientRect(); if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight) return;
+      el.__uEinAt = Date.now(); ein(el, 0);
+    });
     var H = innerHeight, bewegte = [], animiert = new Set();
     function vorfahr(el) { for (var p = el.parentElement, i = 0; p && i < 12; p = p.parentElement, i++) if (animiert.has(p)) return true; return false; }
     /* a) Gebliebene Elemente gleiten an ihre neue Stelle */
@@ -174,9 +183,17 @@
   try {
     new MutationObserver(function (recs) {
       if (!vorher || !frisch() || aus()) return;
-      for (var i = 0; i < recs.length; i++) { var a = recs[i].addedNodes; for (var j = 0; j < a.length; j++) if (a[j].nodeType === 1) neu.push(a[j]); }
-      if (!geplant) { geplant = true; requestAnimationFrame(nachher); }
-    }).observe(document.documentElement, { childList: true, subtree: true });
+      for (var i = 0; i < recs.length; i++) {
+        var rc = recs[i];
+        if (rc.type === 'attributes') {
+          var alt = rc.oldValue || '', jetzt = typeof rc.target.className === 'string' ? rc.target.className : '';
+          if (VERSTECKT.test(alt) && !VERSTECKT.test(jetzt)) klasseNeu.push(rc.target);
+          continue;
+        }
+        var a = rc.addedNodes; for (var j = 0; j < a.length; j++) if (a[j].nodeType === 1) neu.push(a[j]);
+      }
+      if (!geplant && (neu.length || klasseNeu.length)) { geplant = true; requestAnimationFrame(nachher); }
+    }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
   } catch (e) {}
   /* Knöpfe geben beim Drücken leicht nach (eigene Eigenschaft „scale“, stört vorhandene transform-Werte nicht) */
   try {
@@ -197,7 +214,7 @@
           /* Bereich erscheint nach einem Tippen: weich einblenden */
           var vorher0 = !!HD.get.call(el);
           HD.set.call(el, v);
-          if (vorher0 && !v && frisch()) { el.__uEinAt = Date.now(); ein(el, 0); }
+          if (vorher0 && !v && frisch() && !ausgenommen(el)) { el.__uEinAt = Date.now(); ein(el, 0); }
           return;
         }
         var war = !!HD.get.call(el), wird = !!v;
