@@ -6,7 +6,7 @@
 (function () {
   if (window.Uebergang || !Element.prototype.animate) return;
   var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-  var EASE = 'cubic-bezier(.22,1,.36,1)', ZU = 'cubic-bezier(.45,0,.2,1)', DAUER = 800, MENU_DAUER = 540;
+  var EASE = 'cubic-bezier(.22,1,.36,1)', ZU = 'cubic-bezier(.45,0,.2,1)', DAUER = 1080, MENU_DAUER = 720;
   var FENSTER = '.modal, [data-uebergang]';
   var MENUS = '#skyMenu, [role="menu"], [data-uebergang="menu"]';
   var QUELLE = 'button, a, [role="button"], [role="option"], [data-u-key], li, [tabindex]';
@@ -71,8 +71,8 @@
     stopp(k); if (z !== k) stopp(z);
     if (z.matches(MENUS)) { menuAuf(k, q, kr); return; }
     seiteAuf(k, q, kr);
-    hintergrund(z, true, 640);
-    if (z !== k) z.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: 'cubic-bezier(.33,1,.68,1)' });
+    hintergrund(z, true, 860);
+    if (z !== k) z.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 820, easing: 'cubic-bezier(.33,1,.68,1)' });
   }
   /* Vor dem Schließen messen, solange noch alles sichtbar ist */
   function vorSchliessen(z) {
@@ -87,9 +87,9 @@
     var a;
     if (info.q && z.matches(MENUS)) a = menuZu(info.k, info.q, info.kr);
     else if (info.q) a = seiteZu(info.k, info.q, info.kr);
-    else a = info.k.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.98)' }], { duration: 440, easing: ZU, fill: 'forwards' });
-    if (z !== info.k) z.animate([{ opacity: 1 }, { opacity: 0 }], { duration: info.q ? DAUER * 0.9 : 440, easing: ZU, fill: 'forwards' });
-    hintergrund(z, false, info.q ? DAUER * 0.9 : 440);
+    else a = info.k.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.98)' }], { duration: 600, easing: ZU, fill: 'forwards' });
+    if (z !== info.k) z.animate([{ opacity: 1 }, { opacity: 0 }], { duration: info.q ? DAUER * 0.9 : 600, easing: ZU, fill: 'forwards' });
+    hintergrund(z, false, info.q ? DAUER * 0.9 : 600);
     return a;
   }
 
@@ -97,7 +97,7 @@
   var KANDIDAT = 'li, tr, article, section, .card, .tile, .item, .row, .chip, .pill, .tcard, .pc, .mrow, .entry, .stat, button, [data-u-key], [data-n]';
   var zuletzt = 0, vorher = null, geplant = false, neu = [], klasseNeu = [];
   var VERSTECKT = /(^|\s)(hide|hidden|is-hidden|d-none|collapsed|closed|off|inactive)(\s|$)/;
-  function frisch() { return Date.now() - zuletzt < 1100; }
+  function frisch() { return Date.now() - zuletzt < 1500; }
   function sig(el) { return el.tagName + '|' + (typeof el.className === 'string' ? el.className : '') + '|' + (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80); }
   function schnapp() {
     vorher = null;
@@ -120,14 +120,17 @@
   }
   document.addEventListener('pointerdown', interaktion, true);
   document.addEventListener('keydown', interaktion, true);
-  function gleite(el, dx, dy) { try { el.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0px 0px' }], { duration: 740, easing: EASE }); } catch (e) {} }
-  function ein(el, i) { try { el.animate([{ opacity: 0, translate: '0px 8px' }, { opacity: 1, translate: '0px 0px' }], { duration: 680, delay: Math.min(i * 55, 440), easing: EASE, fill: 'backwards' }); } catch (e) {} }
+  function gleite(el, dx, dy) { try { el.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0px 0px' }], { duration: 1000, easing: EASE }); } catch (e) {} }
+  function ein(el, i) { try { el.animate([{ opacity: 0, translate: '0px 8px' }, { opacity: 1, translate: '0px 0px' }], { duration: 900, delay: Math.min(i * 70, 560), easing: EASE, fill: 'backwards' }); } catch (e) {} }
   function ausgenommen(el) { return !!(el && el.closest && el.closest('[data-u-aus]')); }
+  function wechsel(el, richtung) {
+    try { el.animate([{ opacity: 0, translate: (richtung * 36) + 'px 0px' }, { opacity: 1, translate: '0px 0px' }], { duration: Math.round(DAUER * 0.9), easing: EASE, fill: 'backwards' }); } catch (e) {}
+  }
   function kuerzlich(el) {
     if (ausgenommen(el)) return true;
     var jetzt = Date.now();
     for (var p = el, i = 0; p && i < 40; p = p.parentElement, i++) {
-      if ((p.__uEinAt && jetzt - p.__uEinAt < 1100) || (p.__uAufAt && jetzt - p.__uAufAt < 1100)) return true;
+      if ((p.__uEinAt && jetzt - p.__uEinAt < 1500) || (p.__uAufAt && jetzt - p.__uAufAt < 1500)) return true;
     }
     return false;
   }
@@ -198,7 +201,7 @@
   /* Knöpfe geben beim Drücken leicht nach (eigene Eigenschaft „scale“, stört vorhandene transform-Werte nicht) */
   try {
     var st = document.createElement('style');
-    st.textContent = '@media (prefers-reduced-motion: no-preference){:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow):active{scale:.985}:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow){transition-property:scale,background-color,color,border-color,box-shadow,opacity;transition-duration:.38s;transition-timing-function:cubic-bezier(.22,1,.36,1)}}';
+    st.textContent = '@media (prefers-reduced-motion: no-preference){:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow):active{scale:.985}:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow){transition-property:scale,background-color,color,border-color,box-shadow,opacity;transition-duration:.45s;transition-timing-function:cubic-bezier(.22,1,.36,1)}}';
     (document.head || document.documentElement).appendChild(st);
   } catch (e) {}
 
@@ -211,10 +214,22 @@
         var el = this;
         if (aus() || !el.matches) return HD.set.call(el, v);
         if (!(el.matches(FENSTER) || el.matches(MENUS))) {
-          /* Bereich erscheint nach einem Tippen: weich einblenden */
-          var vorher0 = !!HD.get.call(el);
+          var vorher0 = !!HD.get.call(el), eltern = el.parentElement;
+          /* Bereich verschwindet nach einem Tippen: merken, damit der nächste Bereich weiß, woher er kommt */
+          if (!vorher0 && v && frisch() && eltern) eltern.__uWeg = { el: el, t: Date.now(), i: Array.prototype.indexOf.call(eltern.children, el) };
           HD.set.call(el, v);
-          if (vorher0 && !v && frisch() && !ausgenommen(el)) { el.__uEinAt = Date.now(); ein(el, 0); }
+          if (vorher0 && !v && frisch() && !ausgenommen(el)) {
+            el.__uEinAt = Date.now();
+            /* Kurz warten, bis die App den alten Bereich auch ausgeblendet hat (Reihenfolge ist je nach App verschieden) */
+            Promise.resolve().then(function () {
+              var weg = eltern && eltern.__uWeg;
+              if (weg && weg.el !== el && Date.now() - weg.t < 400) {
+                /* Reiter-Wechsel: von rechts, wenn der neue Reiter weiter rechts liegt, sonst von links */
+                var richtung = Array.prototype.indexOf.call(eltern.children, el) > weg.i ? 1 : -1;
+                wechsel(el, richtung);
+              } else ein(el, 0);
+            });
+          }
           return;
         }
         var war = !!HD.get.call(el), wird = !!v;
