@@ -6,7 +6,7 @@
 (function () {
   if (window.Uebergang || !Element.prototype.animate) return;
   var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-  var EASE = 'cubic-bezier(.2,.8,.2,1)', DAUER = 380, MENU_DAUER = 240;
+  var EASE = 'cubic-bezier(.22,1,.36,1)', ZU = 'cubic-bezier(.45,0,.2,1)', DAUER = 560, MENU_DAUER = 380;
   var FENSTER = '.modal, [data-uebergang]';
   var MENUS = '#skyMenu, [role="menu"], [data-uebergang="menu"]';
   var QUELLE = 'button, a, [role="button"], [role="option"], [data-u-key], li, [tabindex]';
@@ -49,19 +49,19 @@
   function bildB(k) { return { transformOrigin: '0 0', transform: 'none', clipPath: 'inset(0px 0px 0px 0px round ' + radius(k) + 'px)', opacity: 1 }; }
   function seiteAuf(k, q, kr) {
     var a = bildA(k, q, kr), b = bildB(k);
-    return k.animate([a, { opacity: 1, offset: 0.3 }, b], { duration: DAUER, easing: EASE });
+    return k.animate([a, { opacity: 1, offset: 0.45 }, b], { duration: DAUER, easing: EASE });
   }
   function seiteZu(k, q, kr) {
     var a = bildA(k, q, kr), b = bildB(k);
-    return k.animate([b, { opacity: 1, offset: 0.65 }, a], { duration: DAUER * 0.85, easing: EASE, fill: 'forwards' });
+    return k.animate([b, { opacity: 1, offset: 0.55 }, a], { duration: DAUER * 0.9, easing: ZU, fill: 'forwards' });
   }
   /* Menü wächst aus seinem Knopf */
   function menuBild(k, q, kr) {
     var ox = q.left + q.width / 2 - kr.left, oy = q.top + q.height / 2 - kr.top;
-    return { transformOrigin: ox + 'px ' + oy + 'px', transform: 'scale(.35)', opacity: 0 };
+    return { transformOrigin: ox + 'px ' + oy + 'px', transform: 'scale(.6)', opacity: 0 };
   }
   function menuAuf(k, q, kr) { return k.animate([menuBild(k, q, kr), { transformOrigin: menuBild(k, q, kr).transformOrigin, transform: 'none', opacity: 1 }], { duration: MENU_DAUER, easing: EASE }); }
-  function menuZu(k, q, kr) { var m = menuBild(k, q, kr); return k.animate([{ transformOrigin: m.transformOrigin, transform: 'none', opacity: 1 }, m], { duration: MENU_DAUER * 0.8, easing: EASE, fill: 'forwards' }); }
+  function menuZu(k, q, kr) { var m = menuBild(k, q, kr); return k.animate([{ transformOrigin: m.transformOrigin, transform: 'none', opacity: 1 }, m], { duration: MENU_DAUER * 0.85, easing: ZU, fill: 'forwards' }); }
 
   function oeffnen(z, quelle) {
     var k = karteVon(z), kr = k.getBoundingClientRect();
@@ -71,8 +71,8 @@
     stopp(k); if (z !== k) stopp(z);
     if (z.matches(MENUS)) { menuAuf(k, q, kr); return; }
     seiteAuf(k, q, kr);
-    hintergrund(z, true, 260);
-    if (z !== k) z.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+    hintergrund(z, true, 460);
+    if (z !== k) z.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.33,1,.68,1)' });
   }
   /* Vor dem Schließen messen, solange noch alles sichtbar ist */
   function vorSchliessen(z) {
@@ -87,9 +87,9 @@
     var a;
     if (info.q && z.matches(MENUS)) a = menuZu(info.k, info.q, info.kr);
     else if (info.q) a = seiteZu(info.k, info.q, info.kr);
-    else a = info.k.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.97)' }], { duration: 180, easing: 'ease-in', fill: 'forwards' });
-    if (z !== info.k) z.animate([{ opacity: 1 }, { opacity: 0 }], { duration: info.q ? DAUER * 0.85 : 180, easing: 'ease-in', fill: 'forwards' });
-    hintergrund(z, false, info.q ? DAUER * 0.85 : 180);
+    else a = info.k.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.98)' }], { duration: 320, easing: ZU, fill: 'forwards' });
+    if (z !== info.k) z.animate([{ opacity: 1 }, { opacity: 0 }], { duration: info.q ? DAUER * 0.9 : 320, easing: ZU, fill: 'forwards' });
+    hintergrund(z, false, info.q ? DAUER * 0.9 : 320);
     return a;
   }
 
@@ -97,7 +97,7 @@
   var KANDIDAT = 'li, tr, article, section, .card, .tile, .item, .row, .chip, .pill, .tcard, .pc, .mrow, .entry, .stat, button, [data-u-key], [data-n]';
   var zuletzt = 0, vorher = null, geplant = false, neu = [], klasseNeu = [];
   var VERSTECKT = /(^|\s)(hide|hidden|is-hidden|d-none|collapsed|closed|off|inactive)(\s|$)/;
-  function frisch() { return Date.now() - zuletzt < 700; }
+  function frisch() { return Date.now() - zuletzt < 800; }
   function sig(el) { return el.tagName + '|' + (typeof el.className === 'string' ? el.className : '') + '|' + (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80); }
   function schnapp() {
     vorher = null;
@@ -120,14 +120,14 @@
   }
   document.addEventListener('pointerdown', interaktion, true);
   document.addEventListener('keydown', interaktion, true);
-  function gleite(el, dx, dy) { try { el.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0px 0px' }], { duration: 320, easing: EASE }); } catch (e) {} }
-  function ein(el, i) { try { el.animate([{ opacity: 0, translate: '0px 10px' }, { opacity: 1, translate: '0px 0px' }], { duration: 280, delay: Math.min(i * 22, 220), easing: EASE, fill: 'backwards' }); } catch (e) {} }
+  function gleite(el, dx, dy) { try { el.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0px 0px' }], { duration: 520, easing: EASE }); } catch (e) {} }
+  function ein(el, i) { try { el.animate([{ opacity: 0, translate: '0px 8px' }, { opacity: 1, translate: '0px 0px' }], { duration: 480, delay: Math.min(i * 40, 320), easing: EASE, fill: 'backwards' }); } catch (e) {} }
   function ausgenommen(el) { return !!(el && el.closest && el.closest('[data-u-aus]')); }
   function kuerzlich(el) {
     if (ausgenommen(el)) return true;
     var jetzt = Date.now();
     for (var p = el, i = 0; p && i < 40; p = p.parentElement, i++) {
-      if ((p.__uEinAt && jetzt - p.__uEinAt < 600) || (p.__uAufAt && jetzt - p.__uAufAt < 600)) return true;
+      if ((p.__uEinAt && jetzt - p.__uEinAt < 800) || (p.__uAufAt && jetzt - p.__uAufAt < 800)) return true;
     }
     return false;
   }
@@ -198,7 +198,7 @@
   /* Knöpfe geben beim Drücken leicht nach (eigene Eigenschaft „scale“, stört vorhandene transform-Werte nicht) */
   try {
     var st = document.createElement('style');
-    st.textContent = '@media (prefers-reduced-motion: no-preference){:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow):active{scale:.97}:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow){transition-property:scale,background-color,color,border-color,box-shadow,opacity;transition-duration:.16s;transition-timing-function:ease}}';
+    st.textContent = '@media (prefers-reduced-motion: no-preference){:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow):active{scale:.985}:where(button,a[href],[role="button"],summary,.chip,.tile,.tcard,.pc,.mrow){transition-property:scale,background-color,color,border-color,box-shadow,opacity;transition-duration:.28s;transition-timing-function:cubic-bezier(.22,1,.36,1)}}';
     (document.head || document.documentElement).appendChild(st);
   } catch (e) {}
 
@@ -230,7 +230,7 @@
             stopp(info.k); if (el !== info.k) stopp(el);
             el.style.removeProperty('display'); el.style.pointerEvents = '';
           };
-          el.__uZu = fertig; a.onfinish = fertig; setTimeout(fertig, DAUER + 200); /* falls die Seite im Hintergrund ist */
+          el.__uZu = fertig; a.onfinish = fertig; setTimeout(fertig, DAUER + 300); /* falls die Seite im Hintergrund ist */
           return;
         }
         HD.set.call(el, v);
@@ -262,7 +262,7 @@
         stopp(d);
         if (d.__uBg) { d.__uBg.cancel(); d.__uBg = null; }
       };
-      d.__uZu = fertig; a.onfinish = fertig; setTimeout(fertig, DAUER + 200);
+      d.__uZu = fertig; a.onfinish = fertig; setTimeout(fertig, DAUER + 300);
     };
   }
 
