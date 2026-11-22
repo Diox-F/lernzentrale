@@ -278,6 +278,25 @@
     }
     return null;
   }
+  /* Übergang: die Karte wird zur Seite, Zurück schrumpft die Seite wieder in ihre Karte */
+  var lernHer = null;
+  function lernOeffnen(karte, key, setze) {
+    var U = window.Uebergang, r = U ? U.rechteck(karte) : null;
+    setze(); renderLernen(); toTop();
+    lernHer = { key: key };
+    var page = $('lernBody').firstElementChild;
+    if (U && r && page) U.seite(page, r);
+  }
+  function lernZurueck(setze) {
+    var U = window.Uebergang, page = $('lernBody').firstElementChild, pr = null;
+    if (U && page) { var b = page.getBoundingClientRect(), top = Math.max(0, b.top), bot = Math.min(window.innerHeight, b.bottom); if (bot - top > 40) pr = { left: b.left, top: top, width: b.width, height: bot - top, r: 16 }; }
+    var key = lernHer && lernHer.key;
+    setze(); renderLernen();
+    var karte = key ? $('lernBody').querySelector('[data-u-key="' + key.replace(/"/g, '') + '"]') : null;
+    if (!karte) { toTop(); return; }
+    try { karte.scrollIntoView({ block: 'center' }); } catch (e) { toTop(); }
+    if (U && pr) U.zurueck(karte, pr);
+  }
   function renderLernen() {
     var body = $('lernBody'); clear(body);
     if (!S.loaded.themen) { body.appendChild(el('p', 'empty', 'Lernstoff wird geladen …')); return; }
@@ -299,7 +318,7 @@
       c.appendChild(el('b', null, x.titel));
       var m = mastery(x), bar = el('div', 'bar'), i = el('i'); i.style.width = (m || 0) + '%'; if (m >= 75) i.className = 'ok'; bar.appendChild(i); c.appendChild(bar);
       var meta = el('div', 'meta'); meta.appendChild(el('span', null, (m == null ? 0 : m) + ' % sicher')); meta.appendChild(el('span', null, (x.videos || []).filter(function (v) { return v.url; }).length ? 'mit Videos' : '')); c.appendChild(meta);
-      c.addEventListener('click', function () { lern.topic = x.id; renderLernen(); toTop(); });
+      c.dataset.uKey = x.id; c.addEventListener('click', function () { lernOeffnen(c, x.id, function () { lern.topic = x.id; }); });
       grid.appendChild(c);
     });
     body.appendChild(grid);
@@ -331,12 +350,12 @@
     var sum = 0, selbst = 0; kl.punkte.forEach(function (p) { sum += kannStand(p); if (kannSelbst(kl, p)) selbst++; });
     var pct = Math.round(sum / kl.punkte.length), bar = el('div', 'bar'), i = el('i'); i.style.width = pct + '%'; if (pct >= 75) i.className = 'ok'; bar.appendChild(i); b.appendChild(bar);
     var meta = el('div', 'meta'); meta.appendChild(el('span', null, pct + ' % sicher (aus deinen Übungen)')); meta.appendChild(el('span', null, selbst + ' von ' + kl.punkte.length + ' selbst eingeschätzt')); b.appendChild(meta);
-    b.addEventListener('click', function () { lern.kann = kl.id; lern.topic = null; renderLernen(); toTop(); });
+    b.dataset.uKey = 'kann:' + kl.id; b.addEventListener('click', function () { lernOeffnen(b, 'kann:' + kl.id, function () { lern.kann = kl.id; lern.topic = null; }); });
     return b;
   }
   function kannPage(kl) {
     var wrap = el('div', 'view');
-    var nav = el('div', 'row-btns'); var back = el('button', 'chip', '← Alle Themen'); back.type = 'button'; back.addEventListener('click', function () { lern.kann = null; renderLernen(); toTop(); }); nav.appendChild(back); wrap.appendChild(nav);
+    var nav = el('div', 'row-btns'); var back = el('button', 'chip', '← Alle Themen'); back.type = 'button'; back.addEventListener('click', function () { lernZurueck(function () { lern.kann = null; }); }); nav.appendChild(back); wrap.appendChild(nav);
     var hd = el('div', 'card'), tm = kannTermin(kl);
     var h = el('div'); h.appendChild(el('h2', null, kl.titel));
     h.appendChild(el('p', 'sub', (tm ? 'Klassenarbeit ' + fmtDate(tm.datum) + (daysTo(tm.datum) >= 0 ? ' · noch ' + daysTo(tm.datum) + ' Tage' : '') + ' · ' : '') + 'Quelle: ' + kl.quelle));
@@ -374,7 +393,7 @@
   }
   function topicPage(t) {
     var wrap = el('div', 'view');
-    var nav = el('div', 'row-btns'); var back = el('button', 'chip', '← Alle Themen'); back.type = 'button'; back.addEventListener('click', function () { lern.topic = null; renderLernen(); toTop(); }); nav.appendChild(back); wrap.appendChild(nav);
+    var nav = el('div', 'row-btns'); var back = el('button', 'chip', '← Alle Themen'); back.type = 'button'; back.addEventListener('click', function () { lernZurueck(function () { lern.topic = null; }); }); nav.appendChild(back); wrap.appendChild(nav);
     var c = el('article', 'card'), doc = el('div', 'doc');
     var hd = el('div'); hd.appendChild(el('h2', null, t.titel)); hd.appendChild(el('p', 'sub', fach(t.fach).name + ' · Quelle: ' + (t.quelle || '–'))); doc.appendChild(hd);
     if (t.erkl && t.erkl.length) t.erkl.forEach(function (b) { var n = renderBlock(b); if (n) doc.appendChild(n); });
